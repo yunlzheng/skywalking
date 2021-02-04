@@ -78,7 +78,7 @@ public class ErrorLogsAnalyzer {
             .setService(svc)
             .setServiceInstance(svcInst)
             .setEndpoint(metrics.getEndpoint())
-            .setTimestamp(metrics.getEndTime())
+            .setTimestamp(metrics.getEndTime() * 1000)
             .setBody(
                 LogDataBody
                     .newBuilder()
