@@ -15,6 +15,7 @@ Release Notes.
 #### OAP-Backend
 * Allow user-defined `JAVA_OPTS` in the startup script.
 * Metrics combination API supports abandoning results.
+* Save Envoy http access logs when error occurs.
 
 #### UI
 

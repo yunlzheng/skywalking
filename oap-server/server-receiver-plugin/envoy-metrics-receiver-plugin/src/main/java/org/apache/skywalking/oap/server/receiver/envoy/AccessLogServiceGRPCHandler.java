@@ -30,7 +30,6 @@ import org.apache.skywalking.aop.server.receiver.mesh.TelemetryDataDispatcher;
 import org.apache.skywalking.apm.network.servicemesh.v3.ServiceMeshMetric;
 import org.apache.skywalking.oap.server.library.module.ModuleManager;
 import org.apache.skywalking.oap.server.library.module.ModuleStartException;
-import org.apache.skywalking.oap.server.library.util.CollectionUtils;
 import org.apache.skywalking.oap.server.receiver.envoy.als.ALSHTTPAnalysis;
 import org.apache.skywalking.oap.server.receiver.envoy.als.Role;
 import org.apache.skywalking.oap.server.telemetry.TelemetryModule;
@@ -41,6 +40,8 @@ import org.apache.skywalking.oap.server.telemetry.api.MetricsTag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.skywalking.oap.server.library.util.CollectionUtils.isNotEmpty;
+
 public class AccessLogServiceGRPCHandler extends AccessLogServiceGrpc.AccessLogServiceImplBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(AccessLogServiceGRPCHandler.class);
     private final List<ALSHTTPAnalysis> envoyHTTPAnalysisList;
@@ -48,6 +49,7 @@ public class AccessLogServiceGRPCHandler extends AccessLogServiceGrpc.AccessLogS
     private final CounterMetrics counter;
     private final HistogramMetrics histogram;
     private final CounterMetrics sourceDispatcherCounter;
+    private final ErrorLogsAnalyzer errorLogsAnalyzer;
 
     public AccessLogServiceGRPCHandler(ModuleManager manager,
                                        EnvoyMetricReceiverConfig config) throws ModuleStartException {
@@ -63,6 +65,8 @@ public class AccessLogServiceGRPCHandler extends AccessLogServiceGrpc.AccessLogS
         }
 
         LOGGER.debug("envoy HTTP analysis: " + envoyHTTPAnalysisList);
+
+        errorLogsAnalyzer = new ErrorLogsAnalyzer(manager);
 
         MetricsCreator metricCreator = manager.find(TelemetryModule.NAME).provider().getService(MetricsCreator.class);
         counter = metricCreator.createCounter(
@@ -117,14 +121,17 @@ public class AccessLogServiceGRPCHandler extends AccessLogServiceGrpc.AccessLogS
 
                             List<ServiceMeshMetric.Builder> sourceResult = new ArrayList<>();
                             for (final HTTPAccessLogEntry log : logs.getLogEntryList()) {
+                                List<ServiceMeshMetric.Builder> result = null;
                                 for (ALSHTTPAnalysis analysis : envoyHTTPAnalysisList) {
-                                    final List<ServiceMeshMetric.Builder> result =
-                                        analysis.analysis(identifier, log, role);
-                                    if (CollectionUtils.isNotEmpty(result)) {
+                                    result = analysis.analysis(identifier, log, role);
+                                    if (isNotEmpty(result)) {
                                         // Once the analysis has results, don't need to continue analysis in lower priority analyzers.
                                         sourceResult.addAll(result);
                                         break;
                                     }
+                                }
+                                if (isNotEmpty(result)) {
+                                    errorLogsAnalyzer.analyze(result, log);
                                 }
                             }
 
