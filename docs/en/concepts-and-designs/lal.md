@@ -8,7 +8,7 @@ Check the [`default.yaml`](../../../oap-server/server-bootstrap/src/main/resourc
 ## Filter
 
 A filter is a group of [parser](#parser), [extractor](#extractor) and [sink](#sink). Users can use one or more filters
-to organize their processing logics. Every piece of log will be sent to all filters in an LAL rule. The piece of log sent into the filter is available as property `log` in the LAL, therefore you can access the log level via `log.level`.
+to organize their processing logics. Every piece of log will be sent to all filters in an LAL rule. The piece of log sent into the filter is available as property `log` in the LAL, therefore you can access the log service name via `log.service`.
 
 ### Parser
 
@@ -46,7 +46,7 @@ filter {
     extractor {
         tag key: "level", val: parsed["level"]
         // we add a tag called `level` and its value is parsed["level"], captured from the regexp above
-        tid parsed["traceId"]
+        traceId parsed["traceId"]
         // we also extract the trace id from the parsed result, which will be used to associate the log with the trace
     }
     // ...
@@ -77,9 +77,19 @@ persisted (if not dropped) and is used to associate with traces / metrics.
 `endpoint` extracts the service instance name from the `parsed` result, and set it into the `LogData`, which will be
 persisted (if not dropped) and is used to associate with traces / metrics.
 
-- `tid`
+- `traceId`
 
-`tid` extracts the trace ID from the `parsed` result, and set it into the `LogData`, which will be
+`traceId` extracts the trace ID from the `parsed` result, and set it into the `LogData`, which will be
+persisted (if not dropped) and is used to associate with traces / metrics.
+
+- `segmentId`
+
+`segmentId` extracts the segment ID from the `parsed` result, and set it into the `LogData`, which will be
+persisted (if not dropped) and is used to associate with traces / metrics.
+
+- `spanId`
+
+`spanId` extracts the span ID from the `parsed` result, and set it into the `LogData`, which will be
 persisted (if not dropped) and is used to associate with traces / metrics.
 
 - `metrics`
@@ -93,15 +103,30 @@ filter {
     extractor {
         service parsed["serviceName"]
         metrics {
-            counter {
+            counter { // whenever the filter is fed with a piece of log, the counter will be increased by one
                 name: "logsCount"
                 tips: "The total count of received logs"
                 tags: ["key1": "value1", "key2": "value2"]
             }
-            gauge {
+            if (parsed["level"] == "ERROR") {
+                counter {
+                    // whenever the filter is fed with a piece of log whose level is ERROR, the counter will be increased by one
+                    name: "errorLogsCount"
+                    tips: "The total count of error logs"
+                    tags:
+                    ["key1": "value1", "key2": "value2"]
+                }
+            }
+            gauge { // whenever the filter is fed with a piece of log, the gauge will be increased by one
                 name: "whatever"
                 tips: "whatever"
                 tags: ["k1": "v1", "k2": "v2"]
+            }
+            histogram {
+                name: "httpRequestTime"
+                tips: "The time elapsed of the http request"
+                startNanos: parsed["timestamp"]
+                duration: parsed["duration"]
             }
         }
     }
@@ -151,7 +176,7 @@ filter {
     // ... parser
     
     sink {
-        if (log.level == "DEBUG") {
+        if (parsed.level == "DEBUG") {
             dropper {}
         } else {
             sampler {
