@@ -1,9 +1,6 @@
 # Log Analysis Language
 
-Log Analysis Language (LAL) in SkyWalking is essentially a Domain-Specific Language (DSL) to analyze logs. You can use
-LAL to parse, extract, filter, analyze, and save the logs, as well as collaborate the logs with traces, and metrics.
-
-Check the [`default.yaml`](../../../oap-server/server-bootstrap/src/main/resources/lal/default.yaml) for examples.
+Log Analysis Language (LAL) in SkyWalking is essentially a Domain-Specific Language (DSL) to analyze logs. You can use LAL to parse, extract, and save the logs, as well as collaborate the logs with traces (by extracting the trace id, segment id and span id) and metrics (by generating metrics from the logs and send them to the meter system).
 
 ## Filter
 
@@ -44,9 +41,9 @@ filter {
         // this is just a demo pattern
     }
     extractor {
-        tag key: "level", val: parsed["level"]
-        // we add a tag called `level` and its value is parsed["level"], captured from the regexp above
-        traceId parsed["traceId"]
+        tag key: "level", val: parsed.level
+        // we add a tag called `level` and its value is parsed.level, captured from the regexp above
+        traceId parsed.traceId
         // we also extract the trace id from the parsed result, which will be used to associate the log with the trace
     }
     // ...
@@ -94,44 +91,49 @@ persisted (if not dropped) and is used to associate with traces / metrics.
 
 - `metrics`
 
-`metrics` extracts / generates metrics from the logs. The supported metrics are `CounterMetrics`, `GaugeMetrics`,
-and `HistogramMetrics`, examples are as follows:
+`metrics` extracts / generates metrics from the logs, and sends the generated metrics to the meter system, you can configure [MAL](mal.md) for further analysis of these metrics. Examples are as follows:
 
 ```groovy
 filter {
     // ...
     extractor {
-        service parsed["serviceName"]
-        metrics {
-            counter { // whenever the filter is fed with a piece of log, the counter will be increased by one
-                name: "logsCount"
-                tips: "The total count of received logs"
-                tags: ["key1": "value1", "key2": "value2"]
-            }
-            if (parsed["level"] == "ERROR") {
-                counter {
-                    // whenever the filter is fed with a piece of log whose level is ERROR, the counter will be increased by one
-                    name: "errorLogsCount"
-                    tips: "The total count of error logs"
-                    tags:
-                    ["key1": "value1", "key2": "value2"]
-                }
-            }
-            gauge { // whenever the filter is fed with a piece of log, the gauge will be increased by one
-                name: "whatever"
-                tips: "whatever"
-                tags: ["k1": "v1", "k2": "v2"]
-            }
-            histogram {
-                name: "httpRequestTime"
-                tips: "The time elapsed of the http request"
-                startNanos: parsed["timestamp"]
-                duration: parsed["duration"]
-            }
+        service parsed.serviceName
+        metrics("log_count") {
+            timestamp: parsed.timestamp
+            tags: ["level": parsed.level, "service": parsed.service, "instance": parsed.instance]
+            value: 1
+        }
+        metrics("http_response_time") {
+            timestamp: parsed.timestamp
+            tags: ["status_code": parsed.statusCode, "service": parsed.service, "instance": parsed.instance]
+            value: parsed.duration
         }
     }
     // ...
 }
+```
+
+The extractor above generates a metrics named `log_count`, with tag key `level` and value `1`, after this, you can configure MAL rules to calculate the log count grouping by logging level like this:
+
+```yaml
+# ... other configurations of MAL
+
+metrics:
+  - name: log_count_debug
+    exp: log_count.tagEqual('level', 'DEBUG').sum(['service', 'instance']).increase('PT1M')
+  - name: log_count_error
+    exp: log_count.tagEqual('level', 'ERROR').sum(['service', 'instance']).increase('PT1M')
+
+```
+
+The other metrics generated is `http_response_time`, so that you can configure MAL rules to generate more useful metrics like percentiles.
+
+```yaml
+# ... other configurations of MAL
+
+metrics:
+  - name: response_time_percentile
+    exp: http_response_time.sum(['le', 'service', 'instance']).increase('PT5M').histogram().histogram_percentile([50,70,90,99])
 ```
 
 ### Sink
@@ -140,7 +142,7 @@ Sinks are the persistent layer of the LAL. By default, all the logs of each filt
 
 #### Sampler
 
-Sampler allows you to save the logs in a sampling manner. Currently, 2 sampling strategies are supported, `ratelimit` and `probabilistic`.
+Sampler allows you to save the logs in a sampling manner. Currently, 2 sampling strategies are supported, `ratelimit` and `probabilistic`. If multiple samplers are specified, the last one determines the final sampling result, see examples in [Enforcer](#enforcer).
 
 `ratelimit` samples `n` logs at most, in a given duration (e.g. 1 second).
 `probabilistic` samples `n%` logs .
@@ -151,8 +153,10 @@ Examples:
 filter {
     // ... parser
     
-    sampler {
-        ratelimit 100.per.second // 100 logs per second
+    sink {
+        sampler {
+            ratelimit 100.per.second // 100 logs per second
+        }
     }
 }
 ```
@@ -161,8 +165,10 @@ filter {
 filter {
     // ... parser
     
-    sampler {
-        probabilistic 50.percent // 50% logs
+    sink {
+        sampler {
+            probabilistic 50.percent // 50% logs
+        }
     }
 }
 ```
@@ -203,14 +209,31 @@ filter { // filter B:
     // ... extractors to generate many metrics
     extractors {
         metrics {
-            // ... counter
-            // ... gauge
-            // ... histogram
-            // ... etc.
+            // ... metrics
         }
     }
     sink {
         dropper {} // drop all logs because they have been saved in "filter A" above.
+    }
+}
+```
+
+#### Enforcer
+
+Enforcer is another special sink that forcibly samples the log, a typical use case of enforcer is when you have configured a sampler and want to save some logs forcibly, for example, to save error logs even if the sampling mechanism is configured.
+
+```groovy
+filter {
+    // ... parser
+    
+    sink {
+        sampler {
+            // ... sampler configs
+        }
+        if (parserd["level"] == "ERROR") { // sample error logs even if the sampling strategy is configured
+            enforcer {
+            }
+        }
     }
 }
 ```
