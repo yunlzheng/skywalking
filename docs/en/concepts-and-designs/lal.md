@@ -4,6 +4,10 @@ Log Analysis Language (LAL) in SkyWalking is essentially a Domain-Specific Langu
 LAL to parse, extract, and save the logs, as well as collaborate the logs with traces (by extracting the trace id,
 segment id and span id) and metrics (by generating metrics from the logs and send them to the meter system).
 
+The LAL config files are in YAML format, and are located under directory `lal`, you can
+set `log-analyzer/default/lalFiles` in the `application.yml` file or set environment variable `SW_LOG_LAL_FILES` to
+activate specific LAL config files.
+
 ## Filter
 
 A filter is a group of [parser](#parser), [extractor](#extractor) and [sink](#sink). Users can use one or more filters
@@ -117,7 +121,20 @@ filter {
 - `metrics`
 
 `metrics` extracts / generates metrics from the logs, and sends the generated metrics to the meter system, you can
-configure [MAL](mal.md) for further analysis of these metrics. Examples are as follows:
+configure [MAL](mal.md) for further analysis of these metrics. The dedicated MAL config files are under
+directory `log-mal-rules`, you can set `log-analyzer/default/malFiles` to enable configured files.
+
+```yaml
+# application.yml
+# ...
+log-analyzer:
+  selector: ${SW_LOG_ANALYZER:default}
+  default:
+    lalFiles: ${SW_LOG_LAL_FILES:my-lal-config.yaml} # files are under "lal" directory
+    malFiles: ${SW_LOG_MAL_FILES:my-lal-mal-config.yaml,another-lal-mal-config.yaml} # files are under "log-mal-rules" directory
+```
+
+Examples are as follows:
 
 ```groovy
 filter {
