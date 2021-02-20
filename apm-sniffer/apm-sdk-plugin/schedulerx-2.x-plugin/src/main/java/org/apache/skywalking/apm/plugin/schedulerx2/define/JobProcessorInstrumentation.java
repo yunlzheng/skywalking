@@ -15,6 +15,7 @@
  * limitations under the License.
  *
  */
+
 package org.apache.skywalking.apm.plugin.schedulerx2.define;
 
 import com.alibaba.schedulerx.worker.domain.JobContext;
