@@ -18,7 +18,6 @@
 
 package org.apache.skywalking.apm.plugin.schedulerx2.define;
 
-import com.alibaba.schedulerx.worker.domain.JobContext;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.ConstructorInterceptPoint;
