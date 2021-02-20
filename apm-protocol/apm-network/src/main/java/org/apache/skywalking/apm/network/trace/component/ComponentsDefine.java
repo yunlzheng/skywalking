@@ -194,4 +194,6 @@ public class ComponentsDefine {
     public static final OfficialComponent APACHE_CXF = new OfficialComponent(105, "Apache-CXF");
 
     public static final OfficialComponent DOLPHIN_SCHEDULER = new OfficialComponent(106, "dolphinscheduler");
+
+    public static final OfficialComponent SCHEDULERX2_JOB = new OfficialComponent(107, "schedulerx2-job");
 }

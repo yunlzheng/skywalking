@@ -350,6 +350,9 @@ Apache-CXF:
 dolphinscheduler:
   id: 106
   languages: Java
+schedulerx2-job:
+  id: 107
+  languages: Java
 
 # .NET/.NET Core components
 # [3000, 4000) for C#/.NET only
