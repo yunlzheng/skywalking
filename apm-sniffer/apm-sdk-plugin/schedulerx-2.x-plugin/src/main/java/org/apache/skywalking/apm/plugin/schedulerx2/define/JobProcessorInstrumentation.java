@@ -61,7 +61,7 @@ public class JobProcessorInstrumentation extends ClassInstanceMethodsEnhancePlug
                         return named("process")
                                 .and(isPublic())
                                 .and(takesArguments(1))
-                                .and(takesArgument(0, JobContext.class));
+                                .and(takesArgument(0, named("com.alibaba.schedulerx.worker.domain.JobContext")));
                     }
 
                     @Override
