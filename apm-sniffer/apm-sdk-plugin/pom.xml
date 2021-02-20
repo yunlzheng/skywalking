@@ -90,6 +90,7 @@
         <module>avro-plugin</module>
         <module>finagle-6.25.x-plugin</module>
         <module>mariadb-2.x-plugin</module>
+        <module>schedulerx-2.x-plugin</module>
     </modules>
     <packaging>pom</packaging>
 

@@ -158,4 +158,6 @@ public class ComponentsDefine {
     public static final OfficialComponent FINAGLE = new OfficialComponent(85, "Finagle");
 
     public static final OfficialComponent MARIADB_JDBC = new OfficialComponent(87, "mariadb-jdbc");
+
+    public static final OfficialComponent SCHEDULERX2_JOB = new OfficialComponent(107, "schedulerx2-job");
 }
